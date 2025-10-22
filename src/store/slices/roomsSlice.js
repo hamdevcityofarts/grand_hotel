@@ -1,3 +1,4 @@
+// src/store/slices/roomsSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import roomService from '../../services/roomService';
 
@@ -11,6 +12,20 @@ export const fetchRooms = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || 'Erreur lors de la récupération des chambres'
+      );
+    }
+  }
+);
+
+export const fetchRoomById = createAsyncThunk(
+  'rooms/fetchRoomById',
+  async (roomId, { rejectWithValue }) => {
+    try {
+      const response = await roomService.getRoomById(roomId);
+      return response.data.chambre;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Erreur lors de la récupération de la chambre'
       );
     }
   }
@@ -62,12 +77,16 @@ const roomsSlice = createSlice({
   name: 'rooms',
   initialState: {
     rooms: [],
+    currentRoom: null,
     isLoading: false,
     error: null,
   },
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    clearCurrentRoom: (state) => {
+      state.currentRoom = null;
     },
   },
   extraReducers: (builder) => {
@@ -82,6 +101,19 @@ const roomsSlice = createSlice({
         state.rooms = action.payload;
       })
       .addCase(fetchRooms.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // fetchRoomById
+      .addCase(fetchRoomById.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchRoomById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.currentRoom = action.payload;
+      })
+      .addCase(fetchRoomById.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
@@ -103,5 +135,5 @@ const roomsSlice = createSlice({
   },
 });
 
-export const { clearError } = roomsSlice.actions;
+export const { clearError, clearCurrentRoom } = roomsSlice.actions;
 export default roomsSlice.reducer;
