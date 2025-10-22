@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -12,14 +13,55 @@ dotenv.config();
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// ✅ CONFIGURATION CORS AMÉLIORÉE
+const corsOptions = {
+  origin: [
+     'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',  // ✅ AJOUT VITE
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:5173'   
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Servir les fichiers statiques
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ✅ CRÉER LE DOSSIER UPLOADS S'IL N'EXISTE PAS
+const uploadsDir = path.join(__dirname, 'uploads');
+const roomsDir = path.join(uploadsDir, 'rooms');
 
-// ✅✅✅ ROUTES AVEC ANCIENNE STRUCTURE QUI MARCHAIT ✅✅✅
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('✅ Dossier uploads créé');
+}
+
+if (!fs.existsSync(roomsDir)) {
+  fs.mkdirSync(roomsDir, { recursive: true });
+  console.log('✅ Dossier uploads/rooms créé');
+}
+
+// ✅ SERVIR LES FICHIERS STATIQUES AVEC EN-TÊTES CORS
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
+
+// Logs pour debugging
+app.use((req, res, next) => {
+  if (req.path.startsWith('/uploads')) {
+    console.log(`📸 Requête image: ${req.method} ${req.path}`);
+  }
+  next();
+});
+
+// Routes API
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/chambres', require('./routes/chambreRoutes'));
 app.use('/api/reservations', require('./routes/reservationRoutes'));
@@ -59,7 +101,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Route de test
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API Grand Hotel fonctionne!' });
+  res.json({ 
+    message: 'API Grand Hotel fonctionne!',
+    uploads: {
+      directory: uploadsDir,
+      exists: fs.existsSync(uploadsDir)
+    }
+  });
 });
 
 app.use((req, res, next) => {
@@ -91,6 +139,8 @@ const startServer = async () => {
       console.log(`\n🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📚 Documentation: http://localhost:${PORT}/api-docs`);
       console.log(`🔐 Test auth: http://localhost:${PORT}/api/auth/login`);
+      console.log(`📁 Dossier uploads: ${uploadsDir}`);
+      console.log(`🖼️  Images accessibles via: http://localhost:${PORT}/uploads/rooms/`);
     });
 
   } catch (error) {
